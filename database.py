@@ -1,5 +1,5 @@
 import mysql.connector
-
+import pandas as pd
 class MySQL_connection:
 
     def __init__(self, ):
@@ -75,4 +75,25 @@ class MySQL_connection:
     @property
     def connected(self):
         return self.__connected
+
+class PorfolioManager:
+    def __init__(self, connection , cursor) :
+        self.__connection = connection 
+        self.__cursor = cursor 
+
+    # def fetch(self,sql):
+    #     try:
+    #         self.__cursor.execute(sql)
+    #         return self.__cursor.fetchall()
+    #     except Exception as err:
+    #         pass
+    # def exec_sql_commit(self,sql , **kwargs):
+    #     try :
+    #         self.__cursor.execute(sql , kwargs)
+    #         self.__connection.commit()
+    #         return True
+    #     except Exception as err :
+    #         return False
+
+
 

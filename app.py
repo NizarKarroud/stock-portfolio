@@ -14,7 +14,7 @@ class HyperlinkLabel(QLabel):
             self.clicked()  
 
     def clicked(self):
-        print("Hyperlink clicked!")  # Define your action here
+        print("Hyperlink clicked!") 
 
 
 class BourseApp(QMainWindow):
