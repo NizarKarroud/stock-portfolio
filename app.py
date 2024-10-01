@@ -1,7 +1,7 @@
-import sys 
-from PyQt5.QtCore import Qt 
-from PyQt5.QtWidgets import QApplication ,QMainWindow , QWidget , QVBoxLayout , QLabel , QLineEdit , QPushButton , QSpacerItem, QSizePolicy
-from PyQt5.QtGui import  QIcon 
+import sys
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget,QHBoxLayout, QLabel, QLineEdit, QSpacerItem, QSizePolicy)
 from client import Client
 
 class HyperlinkLabel(QLabel):
@@ -17,19 +17,64 @@ class HyperlinkLabel(QLabel):
     def clicked(self):
         print("Hyperlink clicked!") 
 
-class BourseApp(QMainWindow):
-    def __init__(self) -> None:
+
+class MainApp(QMainWindow):
+    def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Bourse")
-        self.setGeometry(100, 100, 1024 , 768)
-        self.setStyleSheet("background-color: #355C7D ; color: #FFFFFF; font-family: Arial, sans-serif;")
-        self.client = Client("127.0.0.1" , 50000)
-        self.login_page = LoginPage(self , self.client)
-        self.setCentralWidget(self.login_page)
+        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)  
 
-    def closeEvent(self, event):
-        event.accept()
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
+
+        self.setStyleSheet("""
+            QMainWindow {
+                border: 2px solid #663399;  
+                border-radius: 18px;
+                background-color: #355C7D ; color: #FFFFFF; font-family: Arial, sans-serif;
+            }
+        """)
+
+        self.central_widget.setStyleSheet("""
+            QWidget {
+                background-color: #355C7D ; color: #FFFFFF; font-family: Arial, sans-serif;
+                border-radius: 18px; 
+            }
+        """)
+
+        layout = QVBoxLayout(self.central_widget)
+        top_layout = QHBoxLayout()
+
+        close_button = QPushButton()
+        close_button.setIcon(QIcon("close.png")) 
+        close_button.setStyleSheet("QPushButton { background-color: transparent; border: none; }")  
+        close_button.clicked.connect(self.close)  
+        top_layout.addStretch()  
+        top_layout.addWidget(close_button)
+
+        layout.addLayout(top_layout)
+
+        layout.addStretch()
+
+        self.setGeometry(100, 100, 1024 , 768)
+
+        self.client = Client("127.0.0.1" , 50000)
+        self.login_page = LoginPage(self, self.client)
+        layout.addWidget(self.login_page)
+
+        self.startPos = None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.startPos = event.pos()
+
+    def mouseMoveEvent(self, event):
+        if self.startPos is not None:
+            self.move(self.pos() + event.pos() - self.startPos)
+
+    def mouseReleaseEvent(self, event):
+        self.startPos = None
 
 class LoginPage(QWidget):
     def __init__(self, parent , client):
@@ -65,7 +110,7 @@ class LoginPage(QWidget):
                 border-radius: 10px;
                 padding: 10px;
                 background-color: #FFFFFF;
-                color: #000000;  /* Set text color to black */
+                color: #000000; 
                 font-size: 16px;
             }
         """)
@@ -85,7 +130,7 @@ class LoginPage(QWidget):
                 border-radius: 10px;
                 padding: 10px;
                 background-color: #FFFFFF;
-                color: #000000;  /* Set text color to black */
+                color: #000000; 
                 font-size: 16px;
             }
         """)
@@ -132,8 +177,6 @@ class LoginPage(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon('icon.ico'))
-
-    sniffer_app = BourseApp()
-    sniffer_app.show()
+    window = MainApp()
+    window.show()
     sys.exit(app.exec_())
