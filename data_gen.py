@@ -1,5 +1,13 @@
 import random
 from database import MySQL_connection
+import random
+import string
+
+def generate_password(length=6):
+    characters = string.ascii_letters + string.digits 
+    password = ''.join(random.choice(characters) for _ in range(length))
+    return password
+
 
 con = MySQL_connection()
 connection = con.connection
@@ -19,14 +27,14 @@ def populate_data(connection, num_actions):
     ]
 
     clients = [
-        ('Alice', 1000),
-        ('Bob', 1500),
-        ('Charlie', 2000),
-        ('David', 2500),
-        ('Eve', 3000)
+        ('Alice', 1000 , generate_password()),
+        ('Bob', 1500 ,generate_password()),
+        ('Charlie', 2000 , generate_password()),
+        ('David', 2500, generate_password()),
+        ('Eve', 3000 , generate_password())
     ]
 
-    insert_client_query = "INSERT INTO client (nom_client, solde) VALUES (%s, %s)"
+    insert_client_query = "INSERT INTO client (nom_client, solde , password) VALUES (%s, %s , %s)"
     cursor.executemany(insert_client_query, clients)
     connection.commit()
     print(f"{cursor.rowcount} records inserted into `client` table.")

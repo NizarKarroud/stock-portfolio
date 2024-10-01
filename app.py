@@ -2,6 +2,7 @@ import sys
 from PyQt5.QtCore import Qt 
 from PyQt5.QtWidgets import QApplication ,QMainWindow , QWidget , QVBoxLayout , QLabel , QLineEdit , QPushButton , QSpacerItem, QSizePolicy
 from PyQt5.QtGui import  QIcon 
+from client import Client
 
 class HyperlinkLabel(QLabel):
     def __init__(self, text, parent=None):
@@ -16,7 +17,6 @@ class HyperlinkLabel(QLabel):
     def clicked(self):
         print("Hyperlink clicked!") 
 
-
 class BourseApp(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -24,16 +24,18 @@ class BourseApp(QMainWindow):
         self.setWindowTitle("Bourse")
         self.setGeometry(100, 100, 1024 , 768)
         self.setStyleSheet("background-color: #355C7D ; color: #FFFFFF; font-family: Arial, sans-serif;")
-        self.login_page = LoginPage(self)
+        self.client = Client("127.0.0.1" , 50000)
+        self.login_page = LoginPage(self , self.client)
         self.setCentralWidget(self.login_page)
 
     def closeEvent(self, event):
         event.accept()
 
 class LoginPage(QWidget):
-    def __init__(self, parent):
+    def __init__(self, parent , client):
         super().__init__(parent)
         self.init_ui()
+        self.client = client
 
     def init_ui(self):
 
@@ -106,7 +108,7 @@ class LoginPage(QWidget):
             }
         """)
         self.login_button.setFixedSize(250, 40)
-
+        self.login_button.clicked.connect(self.login)
         self.login_layout.addWidget(self.login_label)
         self.login_layout.addItem(self.vertical_login_spacer)
 
@@ -125,7 +127,8 @@ class LoginPage(QWidget):
 
         self.setLayout(self.main_layout)
 
-
+    def login(self) :
+        self.client.login_request(self.client_id_input.text() , self.password_input.text())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -81,19 +81,15 @@ class PorfolioManager:
         self.__connection = connection 
         self.__cursor = cursor 
 
-    # def fetch(self,sql):
-    #     try:
-    #         self.__cursor.execute(sql)
-    #         return self.__cursor.fetchall()
-    #     except Exception as err:
-    #         pass
-    # def exec_sql_commit(self,sql , **kwargs):
-    #     try :
-    #         self.__cursor.execute(sql , kwargs)
-    #         self.__connection.commit()
-    #         return True
-    #     except Exception as err :
-    #         return False
+    def fetch_actions(self):
+        try:
+            return pd.read_sql_query("SELECT * FROM action" , self.__connection)
+        except Exception as err:
+            pass
+
+
+
+            
 
 
 
