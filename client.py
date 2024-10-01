@@ -13,25 +13,37 @@ class Client:
             self.connected = True
         except ConnectionRefusedError as err :
             self.connected = False
-            print(err)
+            raise ConnectionRefusedError(f"Could not connect to server at {self.server_ip}:{self.server_port}")
 
+        
     def login_request(self , id : int , password : str):
+        if not id.isdigit() :
+            return "Error: ID must be an integer."
+        
         if self.connected :
             self.login_msg = f"login id : {id} password : {password.strip()}"
-            print(self.login_msg)
             try :
                 self.client_socket.sendall(self.login_msg.encode("utf-8"))
                 self.login_response = self.client_socket.recv(1024).decode("utf-8")  
-                """login request denied no match found
-                    login request accepted   """
-                print(self.login_response )                                                                        
-                
+                if self.login_response == "login request denied no match found" :
+                    print("login request denied no match found")
+                    return "login request denied no match found"                                                                      
+                else :
+                    print("login request accepted ")
+                    return True         # login request accepted 
             except Exception as err:
                 return err
             
     def fetch_stocks_request(self):
-        pass
-
+        if self.connected :
+            self.fetch_stocks_msg = "fetch stocks"
+            try :
+                self.client_socket.sendall(self.fetch_stocks_msg.encode("utf-8"))
+                self.fetch_stocks_response = self.client_socket.recv(1024).decode("utf-8")  
+                return self.fetch_stocks_response         
+            except Exception as err:
+                return err
+            
     def fetch_owned_stocks(self):
         pass
 

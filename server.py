@@ -2,6 +2,7 @@ import asyncio
 import socket
 import re
 from database import MySQL_connection
+import pandas as pd
 
 class AsyncServer:
     def __init__(self , ip , port ) -> None:
@@ -46,6 +47,7 @@ class AsyncServer:
             while True :
                 data = await loop.run_in_executor(None, client_socket.recv, 1024)
                 message = data.decode("utf-8")
+                print(message)
                 server_response = self.parse_message(message)
                 client_socket.sendall(server_response.encode("utf-8"))
 
@@ -86,8 +88,11 @@ class AsyncServer:
         pass
 
     def fetch_stocks(self ):
-        pass
-
+        try : 
+            self.database_object.dataframe_query("SELECT * FROM action")
+        except Exception as err :
+            print(err)
+        
     def fetch_owned(self , data):
         pass
 
