@@ -1,5 +1,7 @@
 import mysql.connector
 import pandas as pd
+import warnings
+
 
 class MySQL_connection:
 
@@ -42,8 +44,12 @@ class MySQL_connection:
         if self.__cursor:
             self.__cursor.close()
 
-    def dataframe_query(self , query):
-        return pd.read_sql_query(query, self.__connection)
+    def dataframe_query(self, query):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            self.__connection.commit()  
+            return pd.read_sql_query(query, self.__connection)
+
 
     @property
     def connection(self):

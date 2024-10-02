@@ -1,9 +1,10 @@
 import sys
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon , QKeySequence
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget,QHBoxLayout, 
-QLabel, QLineEdit, QSpacerItem, QSizePolicy , QDialog , QStackedWidget , QTabWidget , QTableWidget ,QTableWidgetItem , QHeaderView )
+QLabel, QLineEdit, QSpacerItem, QSizePolicy , QDialog , QStackedWidget , QTabWidget , QTableWidget ,QTableWidgetItem , QHeaderView , QShortcut)
 from client import Client
+import json
 
 class HyperlinkLabel(QLabel):
     def __init__(self, text, parent=None):
@@ -51,7 +52,7 @@ class MainApp(QMainWindow):
 
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)  
-
+        
         self.login_widget = QWidget(self)
         self.setCentralWidget(self.login_widget)
 
@@ -77,7 +78,7 @@ class MainApp(QMainWindow):
         self.close_button = QPushButton()
         self.close_button.setIcon(QIcon("close.png")) 
         self.close_button.setStyleSheet("QPushButton { background-color: transparent; border: none; }")  
-        self.close_button.clicked.connect(self.close)  
+        self.close_button.clicked.connect(lambda : self.close_app(self))  
         
 
         self.top_layout.addStretch()  
@@ -100,11 +101,15 @@ class MainApp(QMainWindow):
         self.login_page = LoginPage(self, self.client)
         self.stacked_widget.addWidget(self.login_page)
 
-        self.dashboard = DashboardPage(self , self.client , self.login_page.logged)
-        self.stacked_widget.addWidget(self.dashboard)
 
         self.startPos = None
 
+    def close_app(self , app):
+        try :
+            self.client.client_socket.close()
+            app.close()
+        except Exception as err :
+            ErrorDialog(err , self)
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.startPos = event.pos()
@@ -119,7 +124,6 @@ class MainApp(QMainWindow):
 class LoginPage(QWidget):
     def __init__(self, parent , client):
         super().__init__(parent)
-        self.logged = False
         self.init_ui()
         self.client = client
         self.parent = parent
@@ -195,6 +199,8 @@ class LoginPage(QWidget):
             }
         """)
         self.login_button.setFixedSize(250, 40)
+        self.shortcut = QShortcut(QKeySequence(Qt.Key_Return), self) 
+        self.shortcut.activated.connect(self.login)  
         self.login_button.clicked.connect(self.login)
         self.login_layout.addWidget(self.login_label)
         self.login_layout.addItem(self.vertical_login_spacer)
@@ -216,18 +222,18 @@ class LoginPage(QWidget):
 
     def login(self) :
         validation = self.client.login_request(self.client_id_input.text() , self.password_input.text())
-        if validation == True:
+        if validation == "Login request accepted":
+            self.parent.dashboard = DashboardPage(self , self.client , self.client_id_input.text() )
+            self.parent.stacked_widget.addWidget(self.parent.dashboard)
             self.parent.stacked_widget.setCurrentWidget(self.parent.dashboard) 
-            self.logged = True
         else :
             ErrorDialog(validation, self.parent)
 
 class DashboardPage(QWidget):
-    def __init__(self, parent , client , logged):
+    def __init__(self, parent , client , id):
         super().__init__(parent)
         self.client = client
         self.tabs = QTabWidget()
-        self.logged = logged
         self.tabs.setStyleSheet("""
             QTabBar::tab {
                 background: #E8175D;
@@ -242,6 +248,9 @@ class DashboardPage(QWidget):
             QTabBar::tab:selected {
                 background: #CC527A;
             }
+            QTabBar::tab:focus {
+                outline: none;
+            }
             QTabBar::tab:hover {
                 background: #CC527A;
             }
@@ -251,15 +260,21 @@ class DashboardPage(QWidget):
             }
         """)
 
-        self.stocks_tab = StocksTab(self.client ,self)
+        self.stocks_tab = StocksTab(self.client , id ,self) 
         self.tabs.addTab(self.stocks_tab, "Stocks")
+        
+        self.sales_tab = SalesTab(self.client , id ,self) 
+        self.tabs.addTab(self.sales_tab, "Sales")
+        
+        self.profile_tab = ProfileTab(self.client ,id , self)
+        self.tabs.addTab(self.profile_tab, "Profile")
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.tabs)
         self.setLayout(layout)
 
 class StocksTab(QWidget):
-    def __init__(self, client, parent=None):
+    def __init__(self, client,id,parent=None):
         super(StocksTab, self).__init__(parent)
         self.client = client
         self.table = QTableWidget()
@@ -302,6 +317,53 @@ class StocksTab(QWidget):
             QTableWidget {
                 gridline-color: #555555;   /* Color of the grid lines */
             }
+                                 
+            QScrollBar:vertical {
+                border: 1px solid #555555;
+                background: #2A363B;
+                width: 12px;
+            }
+            QScrollBar::handle:vertical {
+                background: #777777;
+                border-radius: 6px;
+            }
+            QScrollBar::add-line:vertical {
+                border: 1px solid #555555;
+                background: #2A363B;
+                height: 0px;
+            }
+            QScrollBar::sub-line:vertical {
+                border: 1px solid #555555;
+                background: #2A363B;
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: #2A363B;
+            }
+
+            QScrollBar:horizontal {
+                border: 1px solid #555555;
+                background: #2A363B;
+                height: 12px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #777777;
+                border-radius: 6px;
+            }
+            QScrollBar::add-line:horizontal {
+                border: 1px solid #555555;
+                background: #2A363B;
+                width: 0px;
+            }
+            QScrollBar::sub-line:horizontal {
+                border: 1px solid #555555;
+                background: #2A363B;
+                width: 0px;
+            }
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: #2A363B;
+            }
+                      
         """)
 
         self.table.setColumnCount(5)
@@ -327,8 +389,7 @@ class StocksTab(QWidget):
         """)
         self.update_button.clicked.connect(self.populate_table)
 
-        if parent.logged :
-            self.populate_table()
+        self.populate_table()
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.table)
@@ -337,18 +398,126 @@ class StocksTab(QWidget):
     
 
     def populate_table(self):
-        data = self.client.fetch_stocks_request()  
+        self.table.clearContents()  
+        self.table.setRowCount(0)
+        data = json.loads(self.client.fetch_stocks_request())
         self.table.setRowCount(len(data))  
 
-        for row_index, (index, row) in enumerate(data.iterrows()):  
-            for column_index, item in enumerate(row):
-                self.table.setItem(row_index, column_index, QTableWidgetItem(str(item)))  
+        for row_index , row in enumerate(data):  
+            for col_index, (column,value) in enumerate(row.items()):
+                self.table.setItem(row_index, col_index, QTableWidgetItem(str(value)))  
             buy_button = QPushButton("Buy")
-            buy_button.clicked.connect(lambda checked, row=row_index: self.buy_stock(row_index)) 
+            buy_button.clicked.connect(lambda row=row_index: self.buy_stock(row_index)) 
             self.table.setCellWidget(row_index, 4, buy_button)  
 
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch) 
 
+    def buy_stock(self , row_index):
+        pass
+
+class SalesTab(QWidget):
+    def __init__(self,  client, id, parent=None):
+        super(SalesTab, self).__init__(parent)
+        
+class ProfileTab(QWidget):
+    def __init__(self, client, id, parent=None):
+        super(ProfileTab, self).__init__(parent)
+
+        data = json.loads(client.fetch_profile(id))[0]
+        owned_stocks = client.fetch_owned_number(id)
+
+        self.profile_widget = QWidget(self)
+        self.profile_widget.setFixedWidth(450)
+        self.profile_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.profile_widget.setStyleSheet("""
+            QWidget {
+                background-color: #2E2E2E; 
+                border-radius: 15px;
+                padding: 20px;
+            }
+        """)
+
+        self.profile_layout = QVBoxLayout(self.profile_widget)
+
+        self.profile_label = QLabel("Profile")
+        self.id_label = QLabel(f"ID: {data['idclient']}")
+        self.name_label = QLabel(f"Name: {data['nom_client']}")
+
+        self.apply_label_styles(self.profile_label, font_size=28, color="#FFFFFF", bold=True)
+        self.apply_label_styles(self.id_label, font_size=20, color="#FFFFFF", bold=False)      
+        self.apply_label_styles(self.name_label, font_size=20, color="#FFFFFF", bold=False)    
+
+        self.profile_layout.addWidget(self.profile_label, alignment=Qt.AlignCenter) 
+        self.profile_layout.addWidget(self.id_label, alignment=Qt.AlignCenter)  
+        self.profile_layout.addWidget(self.name_label, alignment=Qt.AlignCenter) 
+
+        self.vertical_layout = QVBoxLayout()
+
+        self.info_top_widget = QWidget()
+        self.info_top_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.info_top_widget.setStyleSheet("""
+            QWidget {
+                background-color: #2E2E2E; 
+                border-radius: 10px;
+                padding: 20px;
+                margin-bottom: 10px;  /* Space between top and bottom widgets */
+            }
+        """)
+
+        self.top_layout = QVBoxLayout(self.info_top_widget)
+        self.balance_label = QLabel("Balance")
+        self.balance_value_label = QLabel(f"{data['solde']} DH")
+
+        self.apply_label_styles(self.balance_label, font_size=24, color="#FFFFFF", bold=True)  
+        self.apply_label_styles(self.balance_value_label, font_size=22, color="#A0A0A0", bold=False) 
+
+        self.top_layout.addWidget(self.balance_label, alignment=Qt.AlignCenter)  
+        self.top_layout.addWidget(self.balance_value_label, alignment=Qt.AlignCenter)  
+
+        self.info_bottom_widget = QWidget()
+        self.info_bottom_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.info_bottom_widget.setStyleSheet("""
+            QWidget {
+                background-color: #2E2E2E; 
+                border-radius: 10px;
+                padding: 20px;
+            }
+        """)
+
+        self.bottom_layout = QVBoxLayout(self.info_bottom_widget)
+        self.owned_title = QLabel("Owned Stocks")
+        self.owned_number = QLabel(f"{owned_stocks}")
+
+        self.apply_label_styles(self.owned_title, font_size=24, color="#FFFFFF", bold=True)  
+        self.apply_label_styles(self.owned_number, font_size=22, color="#A0A0A0", bold=False)  
+
+        self.bottom_layout.addWidget(self.owned_title, alignment=Qt.AlignCenter)  
+        self.bottom_layout.addWidget(self.owned_number, alignment=Qt.AlignCenter) 
+
+        self.vertical_layout.addWidget(self.info_top_widget)
+        self.vertical_layout.addWidget(self.info_bottom_widget)
+
+        self.horizontal_layout = QHBoxLayout()
+        self.horizontal_layout.addWidget(self.profile_widget)
+        self.horizontal_spacer = QSpacerItem(40, 40, QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.horizontal_layout.addItem(self.horizontal_spacer)
+        self.horizontal_layout.addLayout(self.vertical_layout) 
+        
+        self.setLayout(self.horizontal_layout)
+
+    def apply_label_styles(self, label, font_size=12, color="#FFFFFF", bold=False):
+        """Apply styles to QLabel."""
+        font_weight = "bold" if bold else "normal"
+        label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {font_size}px;
+                color: {color};
+                font-weight: {font_weight};
+                text-align: center; 
+                margin: 10px 0;  
+                padding: 5px;  
+            }}
+        """)
 
 
 if __name__ == "__main__":

@@ -25,12 +25,10 @@ class Client:
             try :
                 self.client_socket.sendall(self.login_msg.encode("utf-8"))
                 self.login_response = self.client_socket.recv(1024).decode("utf-8")  
-                if self.login_response == "login request denied no match found" :
-                    print("login request denied no match found")
-                    return "login request denied no match found"                                                                      
+                if self.login_response !=  "Login request accepted":
+                    return self.login_response                                                                   
                 else :
-                    print("login request accepted ")
-                    return True         # login request accepted 
+                    return  "Login request accepted"      
             except Exception as err:
                 return err
             
@@ -39,16 +37,47 @@ class Client:
             self.fetch_stocks_msg = "fetch stocks"
             try :
                 self.client_socket.sendall(self.fetch_stocks_msg.encode("utf-8"))
-                self.fetch_stocks_response = self.client_socket.recv(1024).decode("utf-8")  
-                return self.fetch_stocks_response         
+                self.data_len = self.client_socket.recv(1024).decode("utf-8")
+                if self.data_len :
+                    self.fetch_stocks_response = self.client_socket.recv(int(self.data_len)).decode("utf-8")  
+                    return self.fetch_stocks_response         
             except Exception as err:
                 return err
             
-    def fetch_owned_stocks(self):
-        pass
-
-    def fetch_profile(self):
-        pass
+    def fetch_owned_stocks(self, id : int):
+        if self.connected :
+            self.fetched_owned_msg = f"fetch owned id : {id}"
+        try :
+            self.client_socket.sendall(self.fetched_owned_msg.encode("utf-8"))
+            self.data_len = self.client_socket.recv(1024).decode("utf-8")
+            if self.data_len :
+                self.fetch_owned_response = self.client_socket.recv(int(self.data_len)).decode("utf-8")  
+                return self.fetch_owned_response         
+        except Exception as err:
+                return err
+        
+    def fetch_profile(self , id :int):
+        if self.connected :
+            self.fetch_profile_msg = f"fetch profile id : {id}"
+        try :
+            self.client_socket.sendall(self.fetch_profile_msg.encode("utf-8"))
+            self.data_len = self.client_socket.recv(255).decode("utf-8")
+            if self.data_len :
+                self.fetch_profile_response = self.client_socket.recv(int(self.data_len)).decode("utf-8")  
+                return self.fetch_profile_response         
+        except Exception as err:
+                return err
+    
+    def fetch_owned_number(self, id : int):
+        if self.connected :
+            self.fetch_owned_number_msg = f"owned number id : {id}"
+        try :
+            self.client_socket.sendall(self.fetch_owned_number_msg.encode("utf-8"))
+            self.fetch_owned_number_response = self.client_socket.recv(1024).decode("utf-8")  
+            return self.fetch_owned_number_response         
+        except Exception as err:
+                return err            
+            
 if __name__ == "__main__":
     client = Client("127.0.0.1" , 50000)
     client.connect_server()
