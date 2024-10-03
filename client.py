@@ -14,8 +14,7 @@ class Client:
         except ConnectionRefusedError as err :
             self.connected = False
             raise ConnectionRefusedError(f"Could not connect to server at {self.server_ip}:{self.server_port}")
-
-        
+      
     def login_request(self , id : int , password : str):
         if not id.isdigit() :
             return "Error: ID must be an integer."
@@ -77,7 +76,16 @@ class Client:
             return self.fetch_owned_number_response         
         except Exception as err:
                 return err            
-            
+
+    def buy_request(self , id , stock_id , number , price):
+        if self.connected :
+            self.buy_request_msg = f"buy id : {id} stockid : {stock_id} number : {number} price : {int(price)}"
+        try :
+            self.client_socket.sendall(self.buy_request_msg.encode("utf-8"))
+            self.buy_response = self.client_socket.recv(2048).decode("utf-8")              
+            return self.buy_response         
+        except Exception as err:
+                return err                        
 if __name__ == "__main__":
     client = Client("127.0.0.1" , 50000)
     client.connect_server()

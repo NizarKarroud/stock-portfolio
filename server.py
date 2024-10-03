@@ -32,7 +32,7 @@ class AsyncServer:
             'fetch_profile': (re.compile(r'fetch profile id\s*:\s*(\S+)'), self.requests_references['fetch profile']),
             'fetch_owned': (re.compile(r'fetch owned id\s*:\s*(\S+)'), self.requests_references['fetch owned']),
             'sell': (re.compile(r'sell id\s*:\s*(\S+)\s*stockid\s*:\s*(\S+)\s*number\s*:\s*(\S+)'), self.requests_references['sell']),
-            'buy': (re.compile(r'buy id\s*:\s*(\S+)\s*stockid\s*:\s*(\S+)\s*number\s*:\s*(\S+)'), self.requests_references['buy']),
+            'buy': (re.compile(r'buy id\s*:\s*(\S+)\s*stockid\s*:\s*(\S+)\s*number\s*:\s*(\S+)\s*price\s*:\s*(\S+)'), self.requests_references['buy']),
             "owned number": (re.compile(r'owned number id\s*:\s*(\S+)'), self.requests_references["owned number"])
         }
 
@@ -95,9 +95,51 @@ class AsyncServer:
             return "Login request failed"
 
     def buy_request(self, arguments):
-        logging.info(f"Buy request with arguments: {arguments}")
-        return "Buy request processed"
-
+        user_id, stock_id, number, price = map(int, arguments[:])
+        try :
+            self.database_cursor.execute(f"SELECT nombre FROM action WHERE idaction={stock_id};")
+            available_number = self.database_cursor.fetchone()
+            if available_number[0] :
+                self.database_cursor.execute(f"SELECT solde FROM client WHERE idclient={user_id};")
+                user_balance = self.database_cursor.fetchone()
+                if user_balance[0] >= price :
+                    new_balance = user_balance[0] - price
+                    self.database_cursor.execute(f"UPDATE client SET solde={new_balance} WHERE idclient={user_id};")
+                    
+                    remaining_stocks = available_number[0] - number
+                    if remaining_stocks > 0:
+                        print("1")
+                        self.database_cursor.execute(f"UPDATE action SET nombre={remaining_stocks} WHERE idaction={stock_id};")
+                    else:
+                        print("2")
+                        self.database_cursor.execute(f"DELETE FROM action WHERE idaction={stock_id};")
+                    print("3")
+                    self.database_cursor.execute(f"SELECT nombre FROM actions_client WHERE idclient={user_id} AND idaction={stock_id};")
+                    owned_stocks = self.database_cursor.fetchone()
+                    
+                    if owned_stocks:
+                        new_owned_number = owned_stocks[0] + number
+                        print("4")
+                        self.database_cursor.execute(f"UPDATE actions_client SET nombre={new_owned_number} WHERE idclient={user_id} AND idaction={stock_id};")
+                    else:
+                        print("4")
+                        self.database_cursor.execute(f"INSERT INTO actions_client (idclient, idaction, nombre) VALUES ({user_id}, {stock_id}, {number});")
+                    
+                    self.database_connection.commit()  
+                    logging.info(f"Buy request successful: User {user_id} bought {number} stocks of {stock_id}")
+                    return f"Buy request successful: Purchased {number} of stock {stock_id}."
+                else:
+                    logging.warning(f"Buy request denied: Insufficient balance for user {user_id}")
+                    return "Buy request denied: Insufficient balance."
+            else:
+                logging.warning(f"Buy request denied: Not enough stocks available for stock {stock_id}")
+                return "Buy request denied: Not enough stocks available , update the table ."
+    
+        except Exception as err:
+            logging.error(f"Error processing buy request for user {user_id}: {err}")
+            self.database_connection.rollback()  
+            return "Error processing buy request."
+    
     def sell_request(self, arguments):
         logging.info(f"Sell request with arguments: {arguments}")
         return "Sell request processed"
