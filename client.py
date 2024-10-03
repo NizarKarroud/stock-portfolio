@@ -85,7 +85,18 @@ class Client:
             self.buy_response = self.client_socket.recv(2048).decode("utf-8")              
             return self.buy_response         
         except Exception as err:
-                return err                        
+                return err                 
+
+    
+    def sell_request(self , id , stock_id , number , entity ,price):
+        if self.connected :
+            self.sell_request_msg = f"sell id : {id} stockid : {stock_id} number : {number} entity : {entity} price : {int(price)}"
+        try :
+            self.client_socket.sendall(self.sell_request_msg.encode("utf-8"))
+            self.sell_request_response = self.client_socket.recv(2048).decode("utf-8")              
+            return self.sell_request_response         
+        except Exception as err:
+                return err             
 if __name__ == "__main__":
     client = Client("127.0.0.1" , 50000)
     client.connect_server()

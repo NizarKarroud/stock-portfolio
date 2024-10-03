@@ -31,7 +31,7 @@ class AsyncServer:
             'fetch_stocks': (re.compile(r'fetch stocks'), self.requests_references['fetch stocks']),
             'fetch_profile': (re.compile(r'fetch profile id\s*:\s*(\S+)'), self.requests_references['fetch profile']),
             'fetch_owned': (re.compile(r'fetch owned id\s*:\s*(\S+)'), self.requests_references['fetch owned']),
-            'sell': (re.compile(r'sell id\s*:\s*(\S+)\s*stockid\s*:\s*(\S+)\s*number\s*:\s*(\S+)'), self.requests_references['sell']),
+            'sell': (re.compile(r'sell id\s*:\s*(\S+)\s*stockid\s*:\s*(\S+)\s*number\s*:\s*(\S+)\s*entity\s*:\s*(.+?)\s*price\s*:\s*(\S+)'), self.requests_references['sell']),
             'buy': (re.compile(r'buy id\s*:\s*(\S+)\s*stockid\s*:\s*(\S+)\s*number\s*:\s*(\S+)\s*price\s*:\s*(\S+)'), self.requests_references['buy']),
             "owned number": (re.compile(r'owned number id\s*:\s*(\S+)'), self.requests_references["owned number"])
         }
@@ -108,21 +108,16 @@ class AsyncServer:
                     
                     remaining_stocks = available_number[0] - number
                     if remaining_stocks > 0:
-                        print("1")
                         self.database_cursor.execute(f"UPDATE action SET nombre={remaining_stocks} WHERE idaction={stock_id};")
                     else:
-                        print("2")
                         self.database_cursor.execute(f"DELETE FROM action WHERE idaction={stock_id};")
-                    print("3")
                     self.database_cursor.execute(f"SELECT nombre FROM actions_client WHERE idclient={user_id} AND idaction={stock_id};")
                     owned_stocks = self.database_cursor.fetchone()
                     
                     if owned_stocks:
                         new_owned_number = owned_stocks[0] + number
-                        print("4")
                         self.database_cursor.execute(f"UPDATE actions_client SET nombre={new_owned_number} WHERE idclient={user_id} AND idaction={stock_id};")
                     else:
-                        print("4")
                         self.database_cursor.execute(f"INSERT INTO actions_client (idclient, idaction, nombre) VALUES ({user_id}, {stock_id}, {number});")
                     
                     self.database_connection.commit()  
@@ -141,8 +136,36 @@ class AsyncServer:
             return "Error processing buy request."
     
     def sell_request(self, arguments):
-        logging.info(f"Sell request with arguments: {arguments}")
-        return "Sell request processed"
+        user_id, stock_id, number, entity,price = arguments
+        price = int(price)
+        sold_number = int(number)
+        single_price = price // sold_number
+        try :
+            self.database_cursor.execute(f"SELECT nombre FROM actions_client WHERE idaction={stock_id};")
+            owned_number = self.database_cursor.fetchone()
+            if sold_number < owned_number[0] :
+                new_owned =  owned_number[0]- sold_number
+                self.database_cursor.execute(f"UPDATE actions_client SET nombre={new_owned} WHERE idclient={user_id} AND idaction={stock_id};")
+            else :
+                self.database_cursor.execute(f"DELETE FROM actions_client WHERE idaction={stock_id} AND idaction={stock_id};")
+            
+            self.database_cursor.execute(f"SELECT idaction , nombre FROM action WHERE idaction={stock_id};")
+            available_stock = self.database_cursor.fetchone()
+            if available_stock[0]:
+                new_action_number = int(available_stock[1]) +sold_number
+                self.database_cursor.execute(f"UPDATE action SET nombre={new_action_number} WHERE idaction={available_stock[0]};")
+            else :
+                self.database_cursor.execute(f"INSERT INTO action (idaction, nombre, prix,societe) VALUES ({stock_id},{sold_number},{single_price} , {entity});")
+            self.database_cursor.execute(f"SELECT solde FROM client WHERE idclient={user_id}")
+            user_solde = self.database_cursor.fetchone()
+            updated_solde = int(user_solde[0]) + price
+            self.database_cursor.execute(f"UPDATE client SET solde={updated_solde} WHERE idclient={user_id} ;")
+            logging.info(f"Sale request successful: User {user_id} solde {sold_number} stocks of {stock_id}")
+            return f"Sale request successful"
+        except Exception as err:
+            logging.error(f"Error processing Sale request for user {user_id}: {err}")
+            self.database_connection.rollback()  
+            return "Error processing sale request."
 
     def fetch_profile(self, arguments):
         id = arguments[0]
@@ -176,8 +199,17 @@ class AsyncServer:
     def fetch_owned(self, arguments):
         id = arguments[0]
         try:
-            self.database_cursor.execute(f"SELECT * FROM owned_stocks WHERE idclient={id};")
-            owned_stocks = self.database_cursor.fetchall()
+            df = self.database_object.dataframe_query(f"SELECT idaction , nombre FROM actions_client WHERE idclient={id};")
+            idactions = df['idaction'].tolist()
+            idactions_str = ','.join([str(action) for action in idactions])  
+            prices_df = self.database_object.dataframe_query(
+                f"SELECT idaction, societe,prix FROM action WHERE idaction IN ({idactions_str});"
+            )
+
+            df = df.merge(prices_df, on='idaction', how='left') 
+
+            owned_stocks = df.to_json(orient="records")
+            print(owned_stocks)
             logging.info(f"Fetched owned stocks for user ID {id}")
             return owned_stocks
         except Exception as err:

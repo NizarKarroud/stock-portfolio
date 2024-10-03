@@ -434,7 +434,6 @@ class StocksTab(QWidget):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
     def buy_stock(self , row_index):
-        print(row_index)
         stock_id = self.table.item(row_index, 0).text()  
         number = self.table.item(row_index, 2).text()    
         price = self.table.item(row_index, 3).text()     
@@ -444,7 +443,133 @@ class StocksTab(QWidget):
 class SalesTab(QWidget):
     def __init__(self,  client, id, parent=None):
         super(SalesTab, self).__init__(parent)
-        
+        self.client = client
+        self.userid = id
+        self.parent = parent
+        self.table = QTableWidget()
+        self.table.setStyleSheet("""
+            /* Table Header */
+            QHeaderView::section {
+                background-color: #E8175D; 
+                color: #FFFFFF;           
+                padding: 8px;              
+                font-size: 14px;          
+                border: 1px solid #555555; 
+            }
+
+            /* Table Cells */
+            QTableWidget::item {
+                background-color: #F7CAC9; 
+                color: #000000;           
+                padding: 5px;             
+                border: none;             
+            }
+
+            /* Alternating Row Colors */
+            QTableWidget::item:alternate {
+                background-color: #F5E1D2; 
+            }
+
+            /* Hovered Cell */
+            QTableWidget::item:hover {
+                background-color: #CC527A; 
+                color: #FFFFFF;           
+            }
+
+            /* Selected Cell */
+            QTableWidget::item:selected {
+                background-color: #CC527A; 
+                color: #FFFFFF;           
+            }
+
+            /* Grid Line */
+            QTableWidget {
+                gridline-color: #555555;   /* Color of the grid lines */
+            }
+                                 
+            QScrollBar:vertical {
+                border: 1px solid #555555;
+                background: #2A363B;
+                width: 12px;
+            }
+            QScrollBar::handle:vertical {
+                background: #777777;
+                border-radius: 6px;
+            }
+            QScrollBar::add-line:vertical {
+                border: 1px solid #555555;
+                background: #2A363B;
+                height: 0px;
+            }
+            QScrollBar::sub-line:vertical {
+                border: 1px solid #555555;
+                background: #2A363B;
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: #2A363B;
+            }
+
+            QScrollBar:horizontal {
+                border: 1px solid #555555;
+                background: #2A363B;
+                height: 12px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #777777;
+                border-radius: 6px;
+            }
+            QScrollBar::add-line:horizontal {
+                border: 1px solid #555555;
+                background: #2A363B;
+                width: 0px;
+            }
+            QScrollBar::sub-line:horizontal {
+                border: 1px solid #555555;
+                background: #2A363B;
+                width: 0px;
+            }
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: #2A363B;
+            }
+                      
+        """)
+
+        self.table.setColumnCount(5)
+
+        self.table.setHorizontalHeaderLabels(["Stock ID", "Number", "Entity", "Price" , "Action"])
+
+        self.populate_table()
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.table)
+        self.setLayout(layout)
+    
+    def populate_table(self):
+        self.table.clearContents()  
+        self.table.setRowCount(0)
+        data = json.loads(self.client.fetch_owned_stocks(self.userid))
+        self.table.setRowCount(len(data))  
+
+        for row_index , row in enumerate(data):  
+            for col_index, (column,value) in enumerate(row.items()):
+
+                self.table.setItem(row_index, col_index, QTableWidgetItem(str(value)))  
+            buy_button = QPushButton("Sell")
+            buy_button.clicked.connect(lambda checked, row=row_index: self.sell_stock(row))  
+            self.table.setCellWidget(row_index, 4, buy_button)  
+
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch) 
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
+    def sell_stock(self , row_index):
+        stock_id = self.table.item(row_index, 0).text()  
+        number = self.table.item(row_index, 1).text() 
+        entity = self.table.item(row_index, 2).text() 
+        price = self.table.item(row_index, 3).text()     
+        buy_window = SellStocksWindow(self.userid, stock_id, number, price ,entity , self)
+        buy_window.exec_()  
+
 class ProfileTab(QWidget):
     def __init__(self, client, id, parent=None):
         super(ProfileTab, self).__init__(parent)
@@ -560,10 +685,8 @@ class BuyStockWindow(QDialog):
             }
         """)
 
-        # Create the main layout for the dialog
         self.main_layout = QVBoxLayout(self)
 
-        # Create a widget to hold the form elements
         self.buy_widget = QWidget()
         self.buy_widget.setStyleSheet("""
             QWidget {
@@ -573,15 +696,12 @@ class BuyStockWindow(QDialog):
             }
         """)
 
-        # Create a vertical layout for the buy_widget
         self.layout = QVBoxLayout(self.buy_widget)
 
-        # Add spacers to center the layout vertically
         self.main_layout.addStretch()
         self.main_layout.addWidget(self.buy_widget)
         self.main_layout.addStretch()
 
-        # Add the stock ID label and input
         self.stock_id_label = QLabel("Stock ID:")
         self.stock_id_label.setStyleSheet("color: #FFFFFF;")  
         self.layout.addWidget(self.stock_id_label)
@@ -590,7 +710,6 @@ class BuyStockWindow(QDialog):
         self.stock_id_input.setReadOnly(True)  
         self.layout.addWidget(self.stock_id_input)
 
-        # Add the number of shares label and input
         self.number_label = QLabel("Number of Shares:")
         self.number_label.setStyleSheet("color: #FFFFFF;")
         self.layout.addWidget(self.number_label)
@@ -614,7 +733,6 @@ class BuyStockWindow(QDialog):
         self.total_price_label.setStyleSheet("color: #FFFFFF;")
         self.layout.addWidget(self.total_price_label)
 
-        # Add the buy button
         self.buy_button = QPushButton("Buy")
         self.buy_button.setStyleSheet("background-color: #663399; color: #FFFFFF; border: none; border-radius: 10px;")
         self.layout.addWidget(self.buy_button)
@@ -622,7 +740,6 @@ class BuyStockWindow(QDialog):
 
         self.layout.addSpacing(10) 
 
-        self.startPos = None
 
         self.update_total_price() 
 
@@ -643,7 +760,6 @@ class BuyStockWindow(QDialog):
         total_price = self.total_price 
         try:
             response = client.buy_request(user_id, stock_id, number_of_shares, total_price)
-            print(response)
             if "Buy request successful" in response :
                 self.parent.parent.update_dashboard()
                 
@@ -651,16 +767,105 @@ class BuyStockWindow(QDialog):
         except Exception as e:
            pass
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.startPos = event.pos()
+class SellStocksWindow(QDialog):
+    def __init__(self, userid, stock_id, number, price, entity , parent=None):
+        super(SellStocksWindow, self).__init__(parent)
+        self.user_id = userid
+        self.parent = parent
+        self.entity = entity
+        self.setGeometry(100, 100, 800, 600)  
+        self.setWindowTitle("Buy Stock")
+        
+        self.setStyleSheet("""
+            QDialog {
+                border: 2px solid   
+                background-color: #363636 ; color: #FFFFFF; font-family: Arial, sans-serif;
+            }
+        """)
 
-    def mouseMoveEvent(self, event):
-        if self.startPos is not None:
-            self.move(self.pos() + event.pos() - self.startPos)
+        self.main_layout = QVBoxLayout(self)
 
-    def mouseReleaseEvent(self, event):
-        self.startPos = None
+        self.buy_widget = QWidget()
+        self.buy_widget.setStyleSheet("""
+            QWidget {
+                background-color: #363636; 
+                color: #FFFFFF; 
+                font-family: Arial, sans-serif;
+            }
+        """)
+
+        self.layout = QVBoxLayout(self.buy_widget)
+
+        self.main_layout.addStretch()
+        self.main_layout.addWidget(self.buy_widget)
+        self.main_layout.addStretch()
+
+        self.stock_id_label = QLabel("Stock ID:")
+        self.stock_id_label.setStyleSheet("color: #FFFFFF;")  
+        self.layout.addWidget(self.stock_id_label)
+
+        self.stock_id_input = QLineEdit(str(stock_id))
+        self.stock_id_input.setReadOnly(True)  
+        self.layout.addWidget(self.stock_id_input)
+
+        self.number_label = QLabel("Number of Shares:")
+        self.number_label.setStyleSheet("color: #FFFFFF;")
+        self.layout.addWidget(self.number_label)
+
+        self.number_input = QSpinBox()
+        self.number_input.setValue(1) 
+        self.number_input.setMinimum(1)  
+        self.number_input.setMaximum(int(number))
+        self.layout.addWidget(self.number_input)
+        self.number_input.valueChanged.connect(self.update_total_price)
+    
+        self.price_label = QLabel("Price per Share:")
+        self.price_label.setStyleSheet("color: #FFFFFF;")
+        self.layout.addWidget(self.price_label)
+
+        self.price_input = QLineEdit(f"{price}")
+        self.price_input.setReadOnly(True)  
+        self.layout.addWidget(self.price_input)
+
+        self.total_price_label = QLabel("Total Price:")
+        self.total_price_label.setStyleSheet("color: #FFFFFF;")
+        self.layout.addWidget(self.total_price_label)
+
+        self.sell_button = QPushButton("Sell")
+        self.sell_button.setStyleSheet("background-color: #663399; color: #FFFFFF; border: none; border-radius: 10px;")
+        self.layout.addWidget(self.sell_button)
+        self.sell_button.clicked.connect(self.sell_stock)  
+
+        self.layout.addSpacing(10) 
+
+
+        self.update_total_price() 
+
+    def update_total_price(self):
+        try:
+            number_of_shares = self.number_input.value()  
+            price_per_share = float(self.price_input.text())  
+            self.total_price = number_of_shares * price_per_share
+            self.total_price_label.setText(f"Total Price: {self.total_price:.2f} DH")
+        except Exception as err :
+            ErrorDialog(err , self)
+
+    def sell_stock(self):
+        user_id = self.user_id
+        client = self.parent.client 
+        stock_id = self.stock_id_input.text()
+        number_of_shares = self.number_input.value()  
+        total_price = self.total_price 
+        try:
+            response = client.sell_request(user_id, stock_id, number_of_shares ,self.entity, total_price)
+            if "Sale request successful" in response :
+                self.parent.parent.update_dashboard()
+                
+            ErrorDialog(response, self)
+        except Exception as e:
+           pass
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
