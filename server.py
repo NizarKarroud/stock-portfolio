@@ -110,7 +110,7 @@ class AsyncServer:
                     if remaining_stocks > 0:
                         self.database_cursor.execute(f"UPDATE action SET nombre={remaining_stocks} WHERE idaction={stock_id};")
                     else:
-                        self.database_cursor.execute(f"DELETE FROM action WHERE idaction={stock_id};")
+                        self.database_cursor.execute(f"UPDATE action SET nombre=0 WHERE idaction={stock_id};")
                     self.database_cursor.execute(f"SELECT nombre FROM actions_client WHERE idclient={user_id} AND idaction={stock_id};")
                     owned_stocks = self.database_cursor.fetchone()
                     
@@ -128,7 +128,7 @@ class AsyncServer:
                     return "Buy request denied: Insufficient balance."
             else:
                 logging.warning(f"Buy request denied: Not enough stocks available for stock {stock_id}")
-                return "Buy request denied: Not enough stocks available , update the table ."
+                return "Buy request denied: Not enough stocks available"
     
         except Exception as err:
             logging.error(f"Error processing buy request for user {user_id}: {err}")
