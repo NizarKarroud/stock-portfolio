@@ -15,7 +15,8 @@ class AsyncServer:
         self.database_object = MySQL_connection()
         self.database_cursor = self.database_object.cursor
         self.database_connection = self.database_object.connection   
-        
+        self.active_sessions = {}
+
         self.requests_references = {
             "login": self.validate_login,
             "buy": self.buy_request,
@@ -36,12 +37,12 @@ class AsyncServer:
             "owned number": (re.compile(r'owned number id\s*:\s*(\S+)'), self.requests_references["owned number"])
         }
 
-    def parse_message(self, message):
+    def parse_message(self, message , client_socket):
         for message_type, (pattern, func) in self.messages_patterns.items():
             match = pattern.match(message)
             if match:
                 arguments = match.groups()
-                response = func(arguments) if arguments else func()
+                response = func(arguments , client_socket) if arguments else func()
                 return response
         logging.warning(f"Unknown message format: {message}")
         return "Unknown command"
@@ -56,7 +57,7 @@ class AsyncServer:
                     break 
                 message = data.decode("utf-8")
                 logging.info(f"Received message: {message}")
-                server_response = self.parse_message(message).encode("utf-8")
+                server_response = self.parse_message(message , client_socket).encode("utf-8")
                 if "fetch" in message:
                     client_socket.sendall(f"{len(server_response)}".encode("utf-8"))
                 client_socket.sendall(server_response)
@@ -65,6 +66,10 @@ class AsyncServer:
         except Exception as err:
             logging.error(f"Error handling client: {err}")
         finally:
+            for key in self.active_sessions.keys():
+                if self.active_sessions[key] == client_socket:
+                    del  self.active_sessions[key]
+                    break            
             client_socket.close()
             logging.info(f"Closed connection with client {client_address}")
     
@@ -79,12 +84,19 @@ class AsyncServer:
             except Exception as err:
                 logging.error(f"Error accepting connections: {err}")
 
-    def validate_login(self, arguments):
+    def validate_login(self, arguments , client_socket):
         id, password = arguments
-        try: 
+        try:
+            if id in self.active_sessions:
+                logging.warning(f"Login denied for user ID {id}: User is already logged in on another connection.")
+                return "Login request denied: User is already logged in."
+
             self.database_cursor.execute(f"SELECT password FROM client WHERE idclient={id}")
             result = self.database_cursor.fetchone()  
-            if result and password == result[0]:
+            if result and password == result[0] :
+                print("here")
+                self.active_sessions[id] = client_socket
+                print("here2")
                 logging.info(f"Login successful for user ID: {id}")
                 return "Login request accepted"
             else: 
@@ -94,7 +106,7 @@ class AsyncServer:
             logging.error(f"Error validating login for ID {id}: {err}")
             return "Login request failed"
 
-    def buy_request(self, arguments):
+    def buy_request(self, arguments , client_socket):
         user_id, stock_id, number, price = map(int, arguments[:])
         try :
             self.database_cursor.execute(f"SELECT nombre FROM action WHERE idaction={stock_id};")
@@ -135,7 +147,7 @@ class AsyncServer:
             self.database_connection.rollback()  
             return "Error processing buy request."
     
-    def sell_request(self, arguments):
+    def sell_request(self, arguments , client_socket):
         user_id, stock_id, number, entity,price = arguments
         price = int(price)
         sold_number = int(number)
@@ -167,7 +179,7 @@ class AsyncServer:
             self.database_connection.rollback()  
             return "Error processing sale request."
 
-    def fetch_profile(self, arguments):
+    def fetch_profile(self, arguments , client_socket):
         id = arguments[0]
         try:
             df = self.database_object.dataframe_query(f"SELECT * FROM client WHERE idclient={id}")
@@ -186,7 +198,7 @@ class AsyncServer:
         except Exception as err:
             logging.error(f"Error fetching stocks: {err}")
 
-    def owned_number(self, arguments):
+    def owned_number(self, arguments , client_socket):
         id = arguments[0]
         try:
             self.database_cursor.execute(f"SELECT COUNT(*) FROM actions_client WHERE idclient={id};")
@@ -196,7 +208,7 @@ class AsyncServer:
         except Exception as err:
             logging.error(f"Error counting owned stocks for ID {id}: {err}")
 
-    def fetch_owned(self, arguments):
+    def fetch_owned(self, arguments , client_socket):
         id = arguments[0]
         try:
             df = self.database_object.dataframe_query(f"SELECT idaction , nombre FROM actions_client WHERE idclient={id};")
