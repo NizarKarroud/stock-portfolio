@@ -32,7 +32,7 @@ class MySQL_connection:
     def mysql_cursor(self):
         try :
             if self.__connected :
-                self.__cursor = self.__connection.cursor()
+                self.__cursor = self.__connection.cursor(buffered=True)
         except Exception as err : 
             pass
 

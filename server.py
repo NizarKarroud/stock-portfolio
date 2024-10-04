@@ -58,8 +58,7 @@ class AsyncServer:
                 message = data.decode("utf-8")
                 logging.info(f"Received message: {message}")
                 server_response = self.parse_message(message , client_socket).encode("utf-8")
-                if "fetch" in message:
-                    client_socket.sendall(f"{len(server_response)}".encode("utf-8"))
+
                 client_socket.sendall(server_response)
                 logging.info(f"Sent response of {len(server_response)} bytes")
 

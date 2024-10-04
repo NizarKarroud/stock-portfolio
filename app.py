@@ -419,7 +419,8 @@ class StocksTab(QWidget):
     def populate_table(self):
         self.table.clearContents()  
         self.table.setRowCount(0)
-        data = json.loads(self.client.fetch_stocks_request())
+        received_data = self.client.fetch_stocks_request()
+        data = json.loads(received_data)
         self.table.setRowCount(len(data))  
 
         for row_index , row in enumerate(data):  
